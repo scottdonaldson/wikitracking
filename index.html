@@ -2,23 +2,30 @@
 <html lang="en">
 <head>
 
+    <link href='https://fonts.googleapis.com/css?family=Noto+Sans:400,400italic,700' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <h1>Hello</h1>
 
-    <div>
-        <input id="query">
-        <button id="submit">Query</button>
-        <div id="suggestions"></div>
+    <div id="page">
+
+        <h1>WikiTracking</h1>
+        <p id="viewing"></p>
+
+        <div>
+            <input id="query" autocomplete="off">
+            <button id="submit">Query</button>
+            <div class="suggestions-container">
+                <div id="suggestions"></div>
+            </div>
+        </div>
+
+        <div id="main"></div>
+        <div id="modal" class="normalize">
+            <p data-edits></p>
+        </div>
     </div>
 
-    <div id="main"></div>
-    <div id="modal" class="normalize">
-        <p data-edits></p>
-    </div>
-
-    <script src="/assets/d3/d3.min.js"></script>
     <script src="/js/min/script.js"></script>
 </body>
 </html>

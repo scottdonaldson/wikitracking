@@ -2,9 +2,10 @@ var gulp = require('gulp'),
     sass = require('gulp-sass'),
     postcss = require('gulp-postcss'),
     autoprefixer = require('autoprefixer-core'),
+    browserify = require('browserify'),
     uglify = require('gulp-uglify'),
-    concat = require('gulp-concat'),
-    rename = require('gulp-rename'),
+    source = require('vinyl-source-stream'),
+    buffer = require('vinyl-buffer'),
     browserSync = require('browser-sync').create();
 var reload = browserSync.reload;
 
@@ -18,7 +19,7 @@ var paths = {
     html: ['./index.html']
 };
 
-paths.jsFiles = ['start', 'init', 'end'];
+paths.jsFiles = ['init'];
 
 paths.jsFiles.forEach(function(path, i) {
     paths.jsFiles[i] = paths.jsIn + '/' + paths.jsFiles[i] + '.js';
@@ -42,17 +43,16 @@ gulp.task('css', function() {
 
 gulp.task('js', function() {
 
-    gulp.src( paths.jsFiles )
-        .pipe(concat('script.js'))
-        .pipe(gulp.dest( paths.jsOut ));
+    browserify('js/src/init.js').bundle()
+        .pipe(source('script.js'))
+        .pipe(gulp.dest('js/min'));
 
-        gulp.src( paths.jsFiles )
-            .pipe(concat('script.min.js'))
-            .pipe(uglify())
-            .pipe(gulp.dest( paths.jsOut ));
+    browserify('js/src/init.js').bundle()
+        .pipe(source('script.min.js'))
+        .pipe(buffer())
+        .pipe(uglify())
+        .pipe(gulp.dest('js/min'));
 });
-
-
 
 gulp.task('watch', ['css', 'js'], function() {
     browserSync.init({
@@ -61,7 +61,8 @@ gulp.task('watch', ['css', 'js'], function() {
         }
     });
 
-    gulp.watch( paths.jsFiles, ['js'] ).on('change', reload);
+    gulp.watch( 'scss/**/*.scss', ['css']).on('change', reload);
+    gulp.watch( 'js/src/**/*.js', ['js'] ).on('change', reload);
     gulp.watch( paths.html ).on('change', reload);
 });
 

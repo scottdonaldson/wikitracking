@@ -1,3 +1,9 @@
+@import "colors";
+
+body {
+    font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
+}
+
 .bar {
     display: inline-block;
     background-color: teal;
@@ -15,8 +21,7 @@ rect {
     shape-rendering: crispEdges;
 }
 
-.axis text {
-    font-family: sans-serif;
+text {
     font-size: 11px;
 }
 
@@ -29,4 +34,36 @@ rect {
     position: absolute;
     text-align: center;
     width: 200px;
+}
+
+#suggestions {
+    background: #fff;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
+    padding: 10px;
+    position: absolute;
+    width: 400px;
+    z-index: 10;
+
+    &:empty { display: none; }
+
+    p {
+        border-bottom: 1px solid #999;
+        cursor: pointer;
+        margin: 0;
+        padding: 0.5em 2px;
+
+        &:active, &:focus, &:hover {
+            @include background-color('red');
+            color: #fff;
+        }
+
+        &:last-child {
+            border: 0;
+        }
+    }
+
+    small {
+        display: block;
+        font-size: 11px;
+    }
 }

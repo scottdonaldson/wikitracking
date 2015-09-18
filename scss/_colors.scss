@@ -1,0 +1,46 @@
+$colors: (
+    'red': #ee5d5d,
+    'white': #fff,
+    'black': #000
+);
+
+@each $color, $value in $colors {
+    .#{$color} { color: $value !important; }
+    .bg-#{$color} { background-color: $value !important; }
+    .hover-#{$color} {
+        &:active, &:focus, &:hover {
+            color: $value !important;
+        }
+    }
+    .hover-bg-#{$color} {
+        &:active, &:focus, &:hover {
+            background-color: $value !important;
+        }
+    }
+    .stroke-#{$color} {
+        stroke: $value !important;
+    }
+    .fill-#{$color} {
+        fill: $value !important;
+    }
+}
+
+@mixin color($which) {
+    color: map-get($colors, $which);
+}
+
+@mixin stroke($which) {
+    stroke: map-get($colors, $which);
+}
+
+@mixin background-color($which) {
+    background-color: map-get($colors, $which);
+}
+
+@mixin fill($which) {
+    fill: map-get($colors, $which);
+}
+
+@mixin filter($str, $amount) {
+    filter: #{$str}($amount);
+}
