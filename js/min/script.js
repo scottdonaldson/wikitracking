@@ -17,7 +17,11 @@ var now = time.now(),
     theDate = now.getDate(),
     theHour = now.getHours();
 
-liveQuery = new PageQuery('Pittsburgh')
+/* ----- Initial query on page load ----- */
+
+var initQuery = window.location.hash ? window.location.hash.slice(1) : 'Pittsburgh';
+
+liveQuery = new PageQuery(initQuery)
     .updateViewing(viewing)
     .makeGraph()
     .getRevisions();
@@ -101,6 +105,8 @@ function PageQuery(title) {
         rect,
         text;
 
+    window.location.hash = title;
+
     function parseNewEdits(arr) {
         arr.forEach(function(item) {
 
@@ -147,10 +153,10 @@ function PageQuery(title) {
                 i++;
             }
 
-            updateYAxis(monthMax);
+            updateYAxis(0, monthMax);
             updateViewing.call(query, false, year);
         } else {
-            updateYAxis(yearMax);
+            updateYAxis(8, yearMax);
             updateViewing.call(query, false);
             data = editsByYear;
         }
@@ -194,12 +200,14 @@ function PageQuery(title) {
 
         rect.on('mouseover', showModal)
             .on('mousemove', showModal)
-            .on('click', function(d) {
-                update.call(query, d.key);
-            })
             .on('mouseout', function() {
                 d3.select(this).attr('class', '');
             });
+
+        // only go further for year views
+        rect.on('click', function(d) {
+            if ( !isNaN(+d.key) ) update.call(query, d.key);
+        });
     }
 
     function showModal(d) {
@@ -222,8 +230,12 @@ function PageQuery(title) {
                 top: modalTop + 'px',
                 width: modalWidth + 'px'
             })
-            .html('<p><b>' + commas(d.value.total) + '</b>&nbsp;edits</p>');
+            .html('<p><b>' + commas(d.value.total || 0) + '</b>&nbsp;edit' + (d.value.total === 1 ? '' : 's') + '</p>');
     }
+
+    svg.on('mouseout', function() {
+        d3.select('#modal').style('display', 'none');
+    });
 
     function archive() {
         store.set('wikitracking-' + title, edits);
@@ -251,9 +263,9 @@ function PageQuery(title) {
         return this;
     }
 
-    function updateYAxis(max) {
-        yScale = updateScale([8, max], [0, h]);
-        yAxisScale = updateScale([8, max], [h + padding, padding]);
+    function updateYAxis(min, max) {
+        yScale = updateScale([min, max], [0, h]);
+        yAxisScale = updateScale([min, max], [h + padding, padding]);
         yAxis.scale(yAxisScale);
         svg.select('.y.axis')
             .transition()
@@ -292,7 +304,7 @@ function PageQuery(title) {
                         }
 
                         // update y axis
-                        updateYAxis(yearMax);
+                        updateYAxis(8, yearMax);
 
                         update.call(this);
                     }
@@ -302,7 +314,7 @@ function PageQuery(title) {
                 parseNewEdits(edits);
 
                 // update y axis
-                updateYAxis(yearMax);
+                updateYAxis(8, yearMax);
             }
 
             update.call(this);

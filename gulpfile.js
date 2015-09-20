@@ -5,11 +5,14 @@ var gulp = require('gulp'),
     browserify = require('browserify'),
     uglify = require('gulp-uglify'),
     source = require('vinyl-source-stream'),
+    awspublish = require('gulp-awspublish'),
     buffer = require('vinyl-buffer'),
     browserSync = require('browser-sync').create();
 var reload = browserSync.reload;
 
 // ----- Config
+
+var aws = require('./aws.json');
 
 var paths = {
     jsIn: 'js/src',
@@ -24,6 +27,12 @@ paths.jsFiles = ['init'];
 paths.jsFiles.forEach(function(path, i) {
     paths.jsFiles[i] = paths.jsIn + '/' + paths.jsFiles[i] + '.js';
 });
+
+var site = {
+    'index.html': '',
+    'css/style.css': 'css',
+    'js/min/script.min.js': 'js/min'
+};
 
 gulp.task('css', function() {
 
@@ -54,6 +63,23 @@ gulp.task('js', function() {
         .pipe(gulp.dest('js/min'));
 });
 
+gulp.task('publish', function() {
+
+    var publisher = awspublish.create({
+        params: {
+            Bucket: aws.bucket
+        },
+        accessKeyId: aws.key,
+        secretAccessKey: aws.secret
+    });
+
+    gulp.src('site/**/*')
+        .pipe(publisher.publish())
+        .pipe(publisher.sync())
+        .pipe(awspublish.reporter());
+
+});
+
 gulp.task('watch', ['css', 'js'], function() {
     browserSync.init({
         server: {
@@ -64,6 +90,11 @@ gulp.task('watch', ['css', 'js'], function() {
     gulp.watch( 'scss/**/*.scss', ['css']).on('change', reload);
     gulp.watch( 'js/src/**/*.js', ['js'] ).on('change', reload);
     gulp.watch( paths.html ).on('change', reload);
+
+    for ( var key in site ) {
+        gulp.src(key)
+            .pipe(gulp.dest('site/' + site[key]))
+    }
 });
 
 gulp.task('default', ['css', 'js', 'watch']);

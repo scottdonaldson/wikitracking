@@ -16,7 +16,11 @@ var now = time.now(),
     theDate = now.getDate(),
     theHour = now.getHours();
 
-liveQuery = new PageQuery('Pittsburgh')
+/* ----- Initial query on page load ----- */
+
+var initQuery = window.location.hash ? window.location.hash.slice(1) : 'Pittsburgh';
+
+liveQuery = new PageQuery(initQuery)
     .updateViewing(viewing)
     .makeGraph()
     .getRevisions();
