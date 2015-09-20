@@ -1,0 +1,228 @@
+// ----- Breakpoints for responsive styles
+$break_large: 1200px;
+$break_medium: 1000px;
+$break_small: 800px;
+$break_small_very: 600px;
+$break_tiny: 480px;
+
+$full_width: 1600px;
+
+@mixin full-width {
+    margin: 0 auto;
+    max-width: $full_width;
+    padding-left: 8%;
+    padding-right: 8%;
+}
+.full-width { @include full-width; }
+
+// Utilities
+.abs {
+    position: absolute;
+}
+
+.t0 { top: 0; }
+.b0 { bottom: 0; }
+.l0 { left: 0; }
+.r0 { right: 0; }
+.w100 { width: 100%; }
+.h100 { height: 100%; }
+
+.block { display: block !important; }
+.inline { display: inline !important; }
+.inline-block { display: inline-block !important; margin-right: 6px; }
+@each $alignment in top, middle, bottom {
+    .v-align-#{$alignment} {
+        vertical-align: #{$alignment};
+    }
+}
+
+// Alignment
+@mixin alignright($i) {
+    @if $i {
+        text-align: right !important;
+        float: right !important;
+    } @else {
+        text-align: right;
+        float: right;
+    }
+}
+.alignright { @include alignright(false); }
+.alignright-s {
+    @media screen and (max-width: $break_small) {
+        @include alignright(true);
+    }
+}
+
+@mixin alignleft($i) {
+    @if $i {
+        text-align: left !important;
+        float: left !important;
+    } @else {
+        text-align: left;
+        float: left;
+    }
+}
+.alignleft { @include alignleft(false); }
+.alignleft-s {
+    @media screen and (max-width: $break_small) {
+        @include alignleft(true)
+    }
+}
+@mixin aligncenter { display: block; margin-left: auto; margin-right: auto; text-align: center; }
+.aligncenter { @include aligncenter; }
+
+// Cribbed from Chris Coyier/CSS-Tricks: http://css-tricks.com/spacing-the-bottom-of-modules/
+@mixin normalize {
+    & > *:first-child,
+    & > *:first-child > *:first-child,
+    & > *:first-child > *:first-child > *:first-child {
+        margin-top: 0 !important;
+    }
+    & > *:last-child,
+    & > *:last-child > *:last-child,
+    & > *:last-child > *:last-child > *:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+.normalize { @include normalize; }
+
+.container {
+    display: flex;
+    &.stack {
+        flex-direction: column;
+    }
+
+    @media screen and (max-width: $break_small) {
+        flex-wrap: wrap;
+    }
+}
+    .same-height {
+        align-self: stretch;
+    }
+
+.row {
+    @include clearfix;
+    margin-bottom: 2em;
+
+    @media screen and (max-width: $break_medium) {
+        margin-bottom: 1.5em;
+    }
+    @media screen and (max-width: $break_small) {
+        margin-bottom: 1em;
+    }
+
+    &:empty { margin-bottom: 0; }
+}
+
+.section {
+    @include clearfix;
+    padding-top: 2em;
+    padding-bottom: 2em;
+
+    @media screen and (max-width: $break_medium) {
+        padding-top: 1.5em;
+        padding-bottom: 1.5em;
+    }
+    @media screen and (max-width: $break_small) {
+        padding-top: 1em;
+        padding-bottom: 1em;
+    }
+
+    &:empty {
+        padding: 0 !important;
+    }
+}
+
+$columns: 12;
+$gutter: 30px;
+@mixin column($num) {
+    // AWW FUCK YEAH
+    flex: 0 1 calc((#{$num * 100% / $columns} - #{ ( $num * ( $columns - 1 ) * $gutter - $columns * ( $num - 1 ) * $gutter ) / $columns }));
+
+    @media screen and (max-width: $break_small) {
+        flex: 0 1 100%;
+        margin-right: 0;
+    }
+}
+
+@mixin column-small($num) {
+    @media screen and (max-width: $break_small) {
+        flex: 0 1 calc((#{$num * 100% / $columns} - #{ ( $num * ( $columns - 1 ) * $gutter - $columns * ( $num - 1 ) * $gutter ) / $columns })) !important;
+        margin-right: $gutter !important;
+
+        &:last-child {
+            margin-right: 0 !important;
+        }
+    }
+}
+
+.column,
+.columns {
+    margin-right: $gutter;
+
+    &:last-child {
+        margin-right: 0;
+    }
+
+    // for floating media only
+    &.alignright,
+    &.alignleft {
+        img {
+            width: 100%;
+        }
+    }
+}
+
+.one.column {
+    @include column(1);
+}
+
+.columns {
+    &.two { @include column(2); }
+    &.three { @include column(3); }
+    &.four { @include column(4); }
+    &.five { @include column(5); }
+    &.six { @include column(6); }
+    &.seven { @include column(7); }
+    &.eight { @include column(8); }
+    &.nine { @include column(9); }
+    &.ten { @include column(10); }
+    &.eleven { @include column(11); }
+    &.twelve { @include column(12); }
+}
+
+.hide-s {
+    @media screen and (max-width: $break_small) {
+        display: none;
+    }
+}
+.one-s { @include column-small(1); }
+.two-s { @include column-small(2); }
+.three-s { @include column-small(3); }
+.four-s { @include column-small(4); }
+.five-s { @include column-small(5); }
+.six-s { @include column-small(6); }
+.seven-s { @include column-small(7); }
+.eight-s { @include column-small(8); }
+.nine-s { @include column-small(9); }
+.ten-s { @include column-small(10); }
+.eleven-s { @include column-small(11); }
+.twelve-s { @include column-small(12); }
+
+// Module
+@mixin module {
+    @include normalize;
+    border-radius: 4px;
+    padding: 1.5em;
+
+    @media screen and (max-width: $break_small) {
+        padding: 1em;
+    }
+}
+.module { @include module; }
+
+// Panel
+.panel {
+    border: 1px solid map-get($colors, 'default');
+    @include module;
+}

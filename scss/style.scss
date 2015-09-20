@@ -1,44 +1,57 @@
 @import "colors";
+@import "normalize";
+@import "layout";
+@import "forms";
 
 body {
+    @include color('default');
     font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
 }
 
-.bar {
-    display: inline-block;
-    background-color: teal;
-    margin-right: 2px;
+h1 {
+    margin-bottom: 0;
 }
 
 rect {
-    transition: 0.1s fill;
-}
-
-.axis path,
-.axis line {
-    fill: none;
-    stroke: black;
-    shape-rendering: crispEdges;
+    cursor: pointer;
+    transition: 0.2s fill;
 }
 
 text {
-    font-size: 11px;
+    @include fill('default');
+}
+
+.axis {
+    path, line {
+        fill: none;
+        @include stroke('default');
+    }
+
+    path {
+        stroke-width: 2px;
+    }
+}
+
+.label {
+    font-weight: bold;
 }
 
 #modal {
     background: #fff;
     border: 1px solid;
-    border-radius: 0.5em;
+    border-radius: 2px;
     display: none;
     padding: 0.5em 0.75em;
     position: absolute;
     text-align: center;
-    width: 200px;
 }
 
 #suggestions {
     background: #fff;
-    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    max-height: 300px;
+    overflow-y: scroll;
     padding: 10px;
     position: absolute;
     width: 400px;
@@ -49,8 +62,9 @@ text {
     p {
         border-bottom: 1px solid #999;
         cursor: pointer;
+        font-weight: bold;
         margin: 0;
-        padding: 0.5em 2px;
+        padding: 0.5em 0.25em;
 
         &:active, &:focus, &:hover {
             @include background-color('red');
@@ -65,5 +79,6 @@ text {
     small {
         display: block;
         font-size: 11px;
+        font-weight: normal;
     }
 }

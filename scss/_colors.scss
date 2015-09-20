@@ -1,7 +1,8 @@
 $colors: (
     'red': #ee5d5d,
     'white': #fff,
-    'black': #000
+    'black': #000,
+    'default': #222
 );
 
 @each $color, $value in $colors {

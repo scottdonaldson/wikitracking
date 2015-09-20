@@ -22,15 +22,6 @@ liveQuery = new PageQuery('Pittsburgh')
     .makeGraph()
     .getRevisions();
 
-document.getElementById('submit').addEventListener('click', function(e) {
-
-    e.preventDefault();
-
-    if ( liveQuery ) liveQuery.archive();
-
-    liveQuery = new PageQuery(encodeURIComponent(query.value)).updateViewing(viewing).makeGraph().getRevisions();
-});
-
 function autofill() {
     var title = this.value,
         url = 'https://en.wikipedia.org/w/api.php?action=opensearch&format=json&search=' + title + '&limit=10';
@@ -61,7 +52,7 @@ function autofill() {
     });
 }
 
-suggestions.addEventListener('click', function(e) {
+function chooseSuggestion(e) {
     var target = e.target;
     while ( target !== suggestions ) {
         if ( target.hasAttribute('data-suggestion') ) {
@@ -69,31 +60,31 @@ suggestions.addEventListener('click', function(e) {
         } else {
             target = target.parentNode;
         }
-        return false;
     }
 
     while (suggestions.firstChild) suggestions.removeChild(suggestions.firstChild);
 
     query.value = '';
 
-    if (liveQuery) liveQuery.archive();
-
     liveQuery = new PageQuery(encodeURIComponent(target.getAttribute('data-suggestion')))
         .updateViewing(viewing)
         .makeGraph()
         .getRevisions();
-});
+}
 
+suggestions.addEventListener('click', chooseSuggestion, false);
 query.addEventListener('keyup', autofill, false);
 
 },{"./query.js":2,"./time.js":3,"d3":4,"reqwest":5}],2:[function(require,module,exports){
 var d3 = require('d3'),
-    ajax = require('reqwest');
+    ajax = require('reqwest'),
+    store = require('store'),
+    time = require('./time.js');
 
 var svg = d3.select('#main').append('svg'),
     w = 800,
     h = 400,
-    padding = 60,
+    padding = 75,
     barPadding = 5;
 
 var commas = d3.format('0,000');
@@ -102,7 +93,8 @@ function PageQuery(title) {
 
     var edits = [],
         years = {},
-        byYear = {},
+        editsByYear = {},
+        yearMax = 0,
         yScale,
         yAxisScale,
         yAxis,
@@ -112,34 +104,64 @@ function PageQuery(title) {
     function parseNewEdits(arr) {
         arr.forEach(function(item) {
 
-            var year = new Date(item.timestamp).getFullYear();
+            var time = new Date(item.timestamp),
+                year = time.getFullYear(),
+                month = time.getMonth();
 
-            if ( byYear[year] ) {
-                byYear[year]++;
+            if ( editsByYear[year] ) {
+                editsByYear[year].total++;
             } else {
-                byYear[year] = 1;
+                editsByYear[year] = {
+                    total: 1
+                };
             }
+
+            if ( editsByYear[year].total > yearMax ) yearMax = editsByYear[year].total;
+            editsByYear[year][month] = editsByYear[year][month] ? editsByYear[year][month] + 1 : 1;
         });
     }
 
     function updateScale(domain, range) {
+        if ( domain[1] < domain[0] ) domain[1] = domain[0];
         return d3.scale.linear()
             .domain(domain)
             .range(range);
     }
 
-    function yOffset(d) { return d3.min([padding + h - 5, padding + h - yScale(d.value)]); }
-    function height(d) { return d3.max([5, yScale(d.value)]); }
+    function yOffset(d) { return d3.min([padding + h - 5, padding + h - yScale(d.value.total)]); }
+    function height(d) { return d3.max([5, yScale(d.value.total)]); }
 
-    function update() {
+    function update(year) {
+
+        var data = {},
+            query = this;
+
+        if ( year ) {
+            var i = 0,
+                monthMax = 0;
+            while ( i < 12 ) {
+                data[time.monthName(i)] = {
+                    total: editsByYear[year][i]
+                };
+                if ( data[time.monthName(i)].total > monthMax ) monthMax = data[time.monthName(i)].total;
+                i++;
+            }
+
+            updateYAxis(monthMax);
+            updateViewing.call(query, false, year);
+        } else {
+            updateYAxis(yearMax);
+            updateViewing.call(query, false);
+            data = editsByYear;
+        }
 
         var barLeft = function(d, i) {
-                return barPadding + padding + i * (w / d3.entries(byYear).length);
+                return barPadding + padding + i * (w / d3.entries(data).length);
             },
-            barWidth = w / d3.entries(byYear).length - barPadding;
+            barWidth = w / d3.entries(data).length - barPadding;
 
-        rect = svg.selectAll('rect').data(d3.entries(byYear));
-        text = svg.selectAll('text.year').data(d3.entries(byYear));
+        rect = svg.selectAll('rect').data(d3.entries(data));
+        text = svg.selectAll('.label').data(d3.entries(data));
 
         // create new <rect> elements for new data
         rect.reverse().enter().append('rect');
@@ -147,65 +169,102 @@ function PageQuery(title) {
 
         // apply transition, dimensions, position
         rect.transition().duration(250)
-            .each('start', function() {
-                d3.select(this)
-                    .attr('fill', '#333')
-            })
-            .each('end', function() {
-                d3.select(this)
-                    .attr('fill', '#000')
-            })
+            .attr('class', 'fill-default')
             .attr('x', barLeft)
             .attr('y', yOffset)
             .attr('width', barWidth)
             .attr('height', height);
         rect.exit().remove();
 
-        text.transition().duration(250)
+        text.attr('class', 'label')
             .attr('x', function(d, i) {
                 return barLeft(d, i) + 0.5 * barWidth;
             })
             .attr('y', function() {
-                return h + padding + 16;
+                return h + padding + 20;
+            })
+            .attr('transform', function(d, i) {
+                return 'rotate(45 ' + (barLeft(d, i) + 0.5 * barWidth) + ' ' + (h + padding) + ')';
             })
             .text(function(d) {
                 return d.key;
             })
-            .attr('text-anchor', 'middle')
             .attr('height', height);
         text.exit().remove();
 
-        rect.on('mouseover', function(d) {
-
-            var $this = d3.select(this);
-
-            rect.each(function() {
+        rect.on('mouseover', showModal)
+            .on('mousemove', showModal)
+            .on('click', function(d) {
+                update.call(query, d.key);
+            })
+            .on('mouseout', function() {
                 d3.select(this).attr('class', '');
             });
+    }
 
-            $this.attr('class', 'fill-red');
+    function showModal(d) {
 
-            d3.select('#modal')
-                .style({
-                    display: 'block',
-                    left: (+$this.attr('x') - 100 + 0.5 * +$this.attr('width')) + 'px',
-                    top: 0.5 * (h + (+$this.attr('y'))) + 'px'
-                })
-                .select('[data-edits]')
-                .html(d.key + '<br><b>' + commas(d.value) + '</b>&nbsp;edits');
+        var $this = d3.select(this),
+            modalWidth = 150,
+            modalLeft = d3.event.pageX - 0.5 * modalWidth,
+            modalTop = d3.event.pageY - 60;
+
+        rect.each(function() {
+            d3.select(this).attr('class', '');
         });
+
+        $this.attr('class', 'fill-red');
+
+        d3.select('#modal')
+            .style({
+                display: 'block',
+                left: modalLeft + 'px',
+                top: modalTop + 'px',
+                width: modalWidth + 'px'
+            })
+            .html('<p><b>' + commas(d.value.total) + '</b>&nbsp;edits</p>');
+    }
+
+    function archive() {
+        store.set('wikitracking-' + title, edits);
+    }
+
+    function updateViewing(viewingNode, year) {
+
+        // set default viewing node
+        if ( !this._viewingNode ) this._viewingNode = viewingNode;
+
+        this._viewingNode.innerHTML = 'You are viewing Wikipedia edits ' + (year ? 'in ' + year : 'by year') + ' for: <b>' + decodeURIComponent(title) + '</b>';
+
+        if ( year ) {
+            var back = document.createElement('p');
+            back.id = 'back';
+            back.innerHTML = '<a href="#">Back to all years</a>';
+            var _this = this;
+            back.addEventListener('click', update.bind(this, null), false);
+
+            this._viewingNode.parentNode.insertBefore(back, this._viewingNode.nextSibling);
+        } else {
+            d3.select('#back').remove();
+        }
+
+        return this;
+    }
+
+    function updateYAxis(max) {
+        yScale = updateScale([8, max], [0, h]);
+        yAxisScale = updateScale([8, max], [h + padding, padding]);
+        yAxis.scale(yAxisScale);
+        svg.select('.y.axis')
+            .transition()
+            .call(yAxis);
     }
 
     return {
-        updateViewing: function(viewingNode) {
-
-            viewingNode.innerHTML = 'You are viewing Wikipedia edits by year for: <b>' + decodeURIComponent(title) + '</b>';
-
-            return this;
-        },
+        updateViewing: updateViewing,
         getRevisions: function getRevisions(param_continue, param_rvcontinue) {
 
-            if ( !localStorage.getItem('wikitracking-' + title) ) {
+            if ( !store.get('wikitracking-' + title) ) {
 
                 if (!param_continue) param_continue = '';
                 if (!param_rvcontinue) param_rvcontinue = '';
@@ -228,41 +287,47 @@ function PageQuery(title) {
                                 data.continue ? data.continue.continue : '',
                                 data.continue ? data.continue.rvcontinue : ''
                             );
-
-                            // update y axis
-                            yScale = updateScale([8, d3.max(d3.values(byYear))], [0, h]);
-                            yAxisScale = updateScale([8, d3.max(d3.values(byYear))], [h + padding, padding]);
-                            yAxis.scale(yAxisScale);
-                            svg.select('.y.axis')
-                                .transition()
-                                .call(yAxis);
+                        } else {
+                            archive();
                         }
-                        update();
+
+                        // update y axis
+                        updateYAxis(yearMax);
+
+                        update.call(this);
                     }
                 });
             } else {
-                edits = JSON.parse(localStorage.getItem('wikitracking-' + title));
+                edits = store.get('wikitracking-' + title);
                 parseNewEdits(edits);
 
                 // update y axis
-                yScale = updateScale([8, d3.max(d3.values(byYear))], [0, h]);
-                yAxisScale = updateScale([8, d3.max(d3.values(byYear))], [h + padding, padding]);
-                yAxis.scale(yAxisScale);
-                svg.select('.y.axis')
-                    .transition()
-                    .call(yAxis);
+                updateYAxis(yearMax);
             }
 
-            update();
+            update.call(this);
 
             return this;
         },
         makeGraph: function makeGraph() {
 
-            svg.attr('width', w + 2 * padding ).attr('height', h + 2 * padding);
+            var realWidth = w + 1.5 * padding,
+                realHeight = h + 2 * padding;
 
-            yScale = updateScale([8, d3.max(d3.values(byYear))], [0, h]);
-            yAxisScale = updateScale([8, d3.max(d3.values(byYear))], [h + padding, padding]);
+            function clamp(val, min, max) {
+                return d3.min([d3.max([val, min]), max]);
+            }
+
+            function svgStyle() {
+
+                var containerWidth = svg.node().parentNode.clientWidth;
+                svg.attr('width', realWidth ).attr('height', realHeight);
+                svg.attr('viewBox', '0 0 ' + (realWidth > containerWidth ? realWidth * realWidth / containerWidth : realWidth) + ' ' + realHeight);
+                svg.style('font-size', clamp(containerWidth / realWidth, 0.8, 1) + 'em');
+            }
+
+            yScale = updateScale([8, yearMax], [0, h]);
+            yAxisScale = updateScale([8, yearMax], [h + padding, padding]);
 
             //Define Y axis
             yAxis = d3.svg.axis()
@@ -276,35 +341,39 @@ function PageQuery(title) {
                 .attr('transform', 'translate(' + padding + ',0)')
                 .call(yAxis);
 
+            svgStyle();
+
+            window.addEventListener('resize', svgStyle);
+
             return this;
-        },
-        archive: function archive() {
-            localStorage.setItem('wikitracking-' + title, JSON.stringify(edits));
         }
     };
 }
 
 module.exports = PageQuery;
 
-},{"d3":4,"reqwest":5}],3:[function(require,module,exports){
-var months = {
-    'January': 31,
-    'February': 28,
-    'March': 31,
-    'April': 30,
-    'May': 31,
-    'June': 30,
-    'July': 31,
-    'August': 31,
-    'September': 30,
-    'October': 31,
-    'November': 30,
-    'December': 31
-};
+},{"./time.js":3,"d3":4,"reqwest":5,"store":6}],3:[function(require,module,exports){
+var months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+];
 
 module.exports = {
     now: function() {
         return new Date();
+    },
+    monthName: function monthName(i) {
+        return months[i];
     }
 };
 
@@ -10446,5 +10515,182 @@ module.exports = {
 
   return reqwest
 });
+
+},{}],6:[function(require,module,exports){
+;(function(win){
+	var store = {},
+		doc = win.document,
+		localStorageName = 'localStorage',
+		scriptTag = 'script',
+		storage
+
+	store.disabled = false
+	store.version = '1.3.17'
+	store.set = function(key, value) {}
+	store.get = function(key, defaultVal) {}
+	store.has = function(key) { return store.get(key) !== undefined }
+	store.remove = function(key) {}
+	store.clear = function() {}
+	store.transact = function(key, defaultVal, transactionFn) {
+		if (transactionFn == null) {
+			transactionFn = defaultVal
+			defaultVal = null
+		}
+		if (defaultVal == null) {
+			defaultVal = {}
+		}
+		var val = store.get(key, defaultVal)
+		transactionFn(val)
+		store.set(key, val)
+	}
+	store.getAll = function() {}
+	store.forEach = function() {}
+
+	store.serialize = function(value) {
+		return JSON.stringify(value)
+	}
+	store.deserialize = function(value) {
+		if (typeof value != 'string') { return undefined }
+		try { return JSON.parse(value) }
+		catch(e) { return value || undefined }
+	}
+
+	// Functions to encapsulate questionable FireFox 3.6.13 behavior
+	// when about.config::dom.storage.enabled === false
+	// See https://github.com/marcuswestin/store.js/issues#issue/13
+	function isLocalStorageNameSupported() {
+		try { return (localStorageName in win && win[localStorageName]) }
+		catch(err) { return false }
+	}
+
+	if (isLocalStorageNameSupported()) {
+		storage = win[localStorageName]
+		store.set = function(key, val) {
+			if (val === undefined) { return store.remove(key) }
+			storage.setItem(key, store.serialize(val))
+			return val
+		}
+		store.get = function(key, defaultVal) {
+			var val = store.deserialize(storage.getItem(key))
+			return (val === undefined ? defaultVal : val)
+		}
+		store.remove = function(key) { storage.removeItem(key) }
+		store.clear = function() { storage.clear() }
+		store.getAll = function() {
+			var ret = {}
+			store.forEach(function(key, val) {
+				ret[key] = val
+			})
+			return ret
+		}
+		store.forEach = function(callback) {
+			for (var i=0; i<storage.length; i++) {
+				var key = storage.key(i)
+				callback(key, store.get(key))
+			}
+		}
+	} else if (doc.documentElement.addBehavior) {
+		var storageOwner,
+			storageContainer
+		// Since #userData storage applies only to specific paths, we need to
+		// somehow link our data to a specific path.  We choose /favicon.ico
+		// as a pretty safe option, since all browsers already make a request to
+		// this URL anyway and being a 404 will not hurt us here.  We wrap an
+		// iframe pointing to the favicon in an ActiveXObject(htmlfile) object
+		// (see: http://msdn.microsoft.com/en-us/library/aa752574(v=VS.85).aspx)
+		// since the iframe access rules appear to allow direct access and
+		// manipulation of the document element, even for a 404 page.  This
+		// document can be used instead of the current document (which would
+		// have been limited to the current path) to perform #userData storage.
+		try {
+			storageContainer = new ActiveXObject('htmlfile')
+			storageContainer.open()
+			storageContainer.write('<'+scriptTag+'>document.w=window</'+scriptTag+'><iframe src="/favicon.ico"></iframe>')
+			storageContainer.close()
+			storageOwner = storageContainer.w.frames[0].document
+			storage = storageOwner.createElement('div')
+		} catch(e) {
+			// somehow ActiveXObject instantiation failed (perhaps some special
+			// security settings or otherwse), fall back to per-path storage
+			storage = doc.createElement('div')
+			storageOwner = doc.body
+		}
+		var withIEStorage = function(storeFunction) {
+			return function() {
+				var args = Array.prototype.slice.call(arguments, 0)
+				args.unshift(storage)
+				// See http://msdn.microsoft.com/en-us/library/ms531081(v=VS.85).aspx
+				// and http://msdn.microsoft.com/en-us/library/ms531424(v=VS.85).aspx
+				storageOwner.appendChild(storage)
+				storage.addBehavior('#default#userData')
+				storage.load(localStorageName)
+				var result = storeFunction.apply(store, args)
+				storageOwner.removeChild(storage)
+				return result
+			}
+		}
+
+		// In IE7, keys cannot start with a digit or contain certain chars.
+		// See https://github.com/marcuswestin/store.js/issues/40
+		// See https://github.com/marcuswestin/store.js/issues/83
+		var forbiddenCharsRegex = new RegExp("[!\"#$%&'()*+,/\\\\:;<=>?@[\\]^`{|}~]", "g")
+		function ieKeyFix(key) {
+			return key.replace(/^d/, '___$&').replace(forbiddenCharsRegex, '___')
+		}
+		store.set = withIEStorage(function(storage, key, val) {
+			key = ieKeyFix(key)
+			if (val === undefined) { return store.remove(key) }
+			storage.setAttribute(key, store.serialize(val))
+			storage.save(localStorageName)
+			return val
+		})
+		store.get = withIEStorage(function(storage, key, defaultVal) {
+			key = ieKeyFix(key)
+			var val = store.deserialize(storage.getAttribute(key))
+			return (val === undefined ? defaultVal : val)
+		})
+		store.remove = withIEStorage(function(storage, key) {
+			key = ieKeyFix(key)
+			storage.removeAttribute(key)
+			storage.save(localStorageName)
+		})
+		store.clear = withIEStorage(function(storage) {
+			var attributes = storage.XMLDocument.documentElement.attributes
+			storage.load(localStorageName)
+			for (var i=0, attr; attr=attributes[i]; i++) {
+				storage.removeAttribute(attr.name)
+			}
+			storage.save(localStorageName)
+		})
+		store.getAll = function(storage) {
+			var ret = {}
+			store.forEach(function(key, val) {
+				ret[key] = val
+			})
+			return ret
+		}
+		store.forEach = withIEStorage(function(storage, callback) {
+			var attributes = storage.XMLDocument.documentElement.attributes
+			for (var i=0, attr; attr=attributes[i]; ++i) {
+				callback(attr.name, store.deserialize(storage.getAttribute(attr.name)))
+			}
+		})
+	}
+
+	try {
+		var testKey = '__storejs__'
+		store.set(testKey, testKey)
+		if (store.get(testKey) != testKey) { store.disabled = true }
+		store.remove(testKey)
+	} catch(e) {
+		store.disabled = true
+	}
+	store.enabled = !store.disabled
+
+	if (typeof module != 'undefined' && module.exports && this.module !== module) { module.exports = store }
+	else if (typeof define === 'function' && define.amd) { define(store) }
+	else { win.store = store }
+
+})(Function('return this')());
 
 },{}]},{},[1]);

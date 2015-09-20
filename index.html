@@ -7,22 +7,24 @@
 </head>
 <body>
 
-    <div id="page">
+    <div id="page" class="container">
 
-        <h1>WikiTracking</h1>
-        <p id="viewing"></p>
+        <div class="three columns same-height">
+            <div class="module">
+                <h1>WikiTracking</h1>
+                <small>v0.1.0</small>
+                <p id="viewing"></p>
 
-        <div>
-            <input id="query" autocomplete="off">
-            <button id="submit">Query</button>
-            <div class="suggestions-container">
-                <div id="suggestions"></div>
+                <input id="query" autocomplete="off" placeholder="Enter your query">
+                <div class="suggestions-container">
+                    <div id="suggestions"></div>
+                </div>
             </div>
         </div>
 
-        <div id="main"></div>
-        <div id="modal" class="normalize">
-            <p data-edits></p>
+        <div class="nine columns same-height">
+            <div id="main"></div>
+            <div id="modal" class="normalize"></div>
         </div>
     </div>
 

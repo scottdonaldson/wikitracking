@@ -21,15 +21,6 @@ liveQuery = new PageQuery('Pittsburgh')
     .makeGraph()
     .getRevisions();
 
-document.getElementById('submit').addEventListener('click', function(e) {
-
-    e.preventDefault();
-
-    if ( liveQuery ) liveQuery.archive();
-
-    liveQuery = new PageQuery(encodeURIComponent(query.value)).updateViewing(viewing).makeGraph().getRevisions();
-});
-
 function autofill() {
     var title = this.value,
         url = 'https://en.wikipedia.org/w/api.php?action=opensearch&format=json&search=' + title + '&limit=10';
@@ -60,7 +51,7 @@ function autofill() {
     });
 }
 
-suggestions.addEventListener('click', function(e) {
+function chooseSuggestion(e) {
     var target = e.target;
     while ( target !== suggestions ) {
         if ( target.hasAttribute('data-suggestion') ) {
@@ -68,19 +59,17 @@ suggestions.addEventListener('click', function(e) {
         } else {
             target = target.parentNode;
         }
-        return false;
     }
 
     while (suggestions.firstChild) suggestions.removeChild(suggestions.firstChild);
 
     query.value = '';
 
-    if (liveQuery) liveQuery.archive();
-
     liveQuery = new PageQuery(encodeURIComponent(target.getAttribute('data-suggestion')))
         .updateViewing(viewing)
         .makeGraph()
         .getRevisions();
-});
+}
 
+suggestions.addEventListener('click', chooseSuggestion, false);
 query.addEventListener('keyup', autofill, false);
