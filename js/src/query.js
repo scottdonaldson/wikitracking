@@ -72,11 +72,25 @@ function PageQuery(title) {
             }
 
             updateYAxis(0, monthMax);
-            updateViewing.call(query, false, year);
+            updateViewing.call(query, query._viewingNode, year);
         } else {
+
             updateYAxis(8, yearMax);
-            updateViewing.call(query, false);
+            updateViewing.call(query, query._viewingNode);
             data = editsByYear;
+
+            // fill in any blank years
+            var firstYear = 9999, lastYear = 0;
+            for ( var year in data ) {
+                if ( +year < firstYear ) firstYear = +year;
+                if ( +year > lastYear ) lastYear = +year;
+            }
+
+            for ( var i = firstYear; i < lastYear; i++ ) {
+                if ( !data[i] ) {
+                    data[i] = { total: 0 };
+                }
+            }
         }
 
         var barLeft = function(d, i) {
@@ -162,7 +176,7 @@ function PageQuery(title) {
     function updateViewing(viewingNode, year) {
 
         // set default viewing node
-        if ( !this._viewingNode ) this._viewingNode = viewingNode;
+        if ( viewingNode && !this._viewingNode ) this._viewingNode = viewingNode;
 
         this._viewingNode.innerHTML = 'You are viewing Wikipedia edits ' + (year ? 'in ' + year : 'by year') + ' for: <b>' + decodeURIComponent(title) + '</b>';
 
@@ -182,6 +196,12 @@ function PageQuery(title) {
     }
 
     function updateYAxis(min, max) {
+
+        if ( max < 15 ) {
+            min = 0;
+            max = 15;
+        }
+
         yScale = updateScale([min, max], [0, h]);
         yAxisScale = updateScale([min, max], [h + padding, padding]);
         yAxis.scale(yAxisScale);
@@ -194,6 +214,8 @@ function PageQuery(title) {
         updateViewing: updateViewing,
         getRevisions: function getRevisions(param_continue, param_rvcontinue) {
 
+            var query = this; // for binding
+
             if ( !store.get('wikitracking-' + title) ) {
 
                 if (!param_continue) param_continue = '';
@@ -201,31 +223,33 @@ function PageQuery(title) {
 
                 var url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&titles=' + title + '&rvprop=timestamp&continue=' + param_continue + '&rvlimit=500' + (param_rvcontinue ? '&rvcontinue=' + param_rvcontinue : '');
 
+                function success(data) {
+
+                    for ( var page in data.query.pages ) {
+                        edits = edits.concat(data.query.pages[page].revisions);
+                        parseNewEdits(data.query.pages[page].revisions);
+                    }
+
+                    if ( data.continue ) {
+
+                        query.getRevisions(
+                            data.continue ? data.continue.continue : '',
+                            data.continue ? data.continue.rvcontinue : ''
+                        );
+                    } else {
+                        archive();
+                    }
+
+                    // update y axis
+                    updateYAxis(8, yearMax);
+
+                    update.call(query);
+                }
+
                 ajax({
                     url: url,
                     type: 'jsonp',
-                    success: function success(data) {
-
-                        for ( var page in data.query.pages ) {
-                            edits = edits.concat(data.query.pages[page].revisions);
-                            parseNewEdits(data.query.pages[page].revisions);
-                        }
-
-                        if ( data.continue ) {
-
-                            getRevisions(
-                                data.continue ? data.continue.continue : '',
-                                data.continue ? data.continue.rvcontinue : ''
-                            );
-                        } else {
-                            archive();
-                        }
-
-                        // update y axis
-                        updateYAxis(8, yearMax);
-
-                        update.call(this);
-                    }
+                    success: success.bind(query)
                 });
             } else {
                 edits = store.get('wikitracking-' + title);
@@ -235,9 +259,9 @@ function PageQuery(title) {
                 updateYAxis(8, yearMax);
             }
 
-            update.call(this);
+            update.call(query);
 
-            return this;
+            return query;
         },
         makeGraph: function makeGraph() {
 
