@@ -143,7 +143,7 @@ function Graph(container, viewingNode) {
     // update the bar chart display (and axes) only
     function updateChart(data, max) {
 
-        updateYAxis(8, max);
+        updateYAxis(0, max);
 
         var dataLength = d3.entries(data).length,
             rect,
@@ -152,8 +152,8 @@ function Graph(container, viewingNode) {
 
         var barLeft = leftFactory(dataLength),
             barWidth = widthFactory(dataLength),
-            barOffset = offsetFactory(8, max),
-            barHeight = heightFactory(8, max);
+            barOffset = offsetFactory(0, max),
+            barHeight = heightFactory(0, max);
 
         rect = svg.selectAll('.bar').data(d3.entries(data));
         shadowRect = svg.selectAll('.shadow').data(d3.entries(data));
