@@ -1,32 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var PageQuery = require('./query.js');
-var time = require('./time.js');
+var ajax = require('reqwest');
 
-var d3 = require('d3'),
-    ajax = require('reqwest');
-
-var liveQuery = false;
-
-var query = document.getElementById('query'),
-    suggestions = document.getElementById('suggestions'),
-    viewing = document.getElementById('viewing');
-
-var now = time.now(),
-    theYear = now.getFullYear(),
-    theMonth = now.getMonth() + 1,
-    theDate = now.getDate(),
-    theHour = now.getHours();
-
-/* ----- Initial query on page load ----- */
-
-var initQuery = window.location.hash ? window.location.hash.slice(1) : 'Pittsburgh';
-
-liveQuery = new PageQuery(initQuery)
-    .updateViewing(viewing)
-    .makeGraph()
-    .getRevisions();
-
-function autofill() {
+function suggest() {
     var title = this.value,
         url = 'https://en.wikipedia.org/w/api.php?action=opensearch&format=json&search=' + title + '&limit=10';
 
@@ -57,6 +32,7 @@ function autofill() {
 }
 
 function chooseSuggestion(e) {
+
     var target = e.target;
     while ( target !== suggestions ) {
         if ( target.hasAttribute('data-suggestion') ) {
@@ -70,172 +46,115 @@ function chooseSuggestion(e) {
 
     query.value = '';
 
-    liveQuery = new PageQuery(encodeURIComponent(target.getAttribute('data-suggestion')))
-        .updateViewing(viewing)
-        .makeGraph()
-        .getRevisions();
+    return target.getAttribute('data-suggestion');
 }
 
-suggestions.addEventListener('click', chooseSuggestion, false);
-query.addEventListener('keyup', autofill, false);
+module.exports = function autofill(input, suggestionsNode, cb) {
+    suggestionsNode.addEventListener('click', function(e) {
+        var suggestion = chooseSuggestion(e);
+        if (cb) cb(suggestion);
+    }, false);
+    input.addEventListener('keyup', suggest, false);
+};
 
-},{"./query.js":2,"./time.js":3,"d3":4,"reqwest":5}],2:[function(require,module,exports){
+},{"reqwest":7}],2:[function(require,module,exports){
 var d3 = require('d3'),
-    ajax = require('reqwest'),
-    store = require('store'),
     time = require('./time.js');
 
-var svg = d3.select('#main').append('svg'),
+var commas = d3.format('0,000'),
     w = 800,
     h = 400,
     padding = 75,
     barPadding = 5;
 
-var commas = d3.format('0,000');
+function clamp(val, min, max) {
+    return d3.min([d3.max([val, min]), max]);
+}
 
-function PageQuery(title) {
+function updateScale(domain, range) {
+    if ( domain[1] < domain[0] ) domain[1] = domain[0];
+    return d3.scale.linear()
+        .domain(domain)
+        .range(range);
+}
 
-    var edits = [],
-        years = {},
-        editsByYear = {},
-        yearMax = 0,
-        yScale,
-        yAxisScale,
-        yAxis,
-        rect,
-        text;
+function offsetFactory(min, max) {
+    var yScale = updateScale([min, max], [0, h]);
+    return function offset(d, i) {
+        var total = d3.values(d.value).length > 0 ? d3.sum(d3.values(d.value)) : d.value;
+        return d3.min([padding + h - 5, padding + h - yScale(total)]);
+    }
+}
 
-    window.location.hash = title;
+function heightFactory(min, max) {
+    var yScale = updateScale([min, max], [0, h]);
+    return function height(d, i) {
+        var total = d3.values(d.value).length > 0 ? d3.sum(d3.values(d.value)) : d.value;
+        return d3.max([5, yScale(total)]);
+    }
+}
 
-    function parseNewEdits(arr) {
-        arr.forEach(function(item) {
+function leftFactory(dataLength) {
+    return function(d, i) {
+        return barPadding + padding + i * (w / dataLength);
+    }
+}
 
-            var time = new Date(item.timestamp),
-                year = time.getFullYear(),
-                month = time.getMonth();
+function widthFactory(dataLength) {
+    return function(d, i) {
+        return w / dataLength - barPadding;
+    }
+}
 
-            if ( editsByYear[year] ) {
-                editsByYear[year].total++;
-            } else {
-                editsByYear[year] = {
-                    total: 1
-                };
-            }
+function Graph(container, viewingNode) {
 
-            if ( editsByYear[year].total > yearMax ) yearMax = editsByYear[year].total;
-            editsByYear[year][month] = editsByYear[year][month] ? editsByYear[year][month] + 1 : 1;
-        });
+    var svg,
+        yAxisScale;
+
+    // set up SVG elemenet
+    if ( !d3.select(container).select('svg')[0] ) {
+        svg = d3.select(container).select('svg');
+    } else {
+        svg = d3.select(container).append('svg');
     }
 
-    function updateScale(domain, range) {
-        if ( domain[1] < domain[0] ) domain[1] = domain[0];
-        return d3.scale.linear()
-            .domain(domain)
-            .range(range);
+    var realWidth = w + 1.5 * padding,
+        realHeight = h + 2 * padding;
+
+    function svgStyle() {
+
+        var containerWidth = container.clientWidth;
+        svg.attr('width', realWidth ).attr('height', realHeight);
+        svg.attr('viewBox', '0 0 ' + (realWidth > containerWidth ? realWidth * realWidth / containerWidth : realWidth) + ' ' + realHeight);
+        svg.style('font-size', clamp(containerWidth / realWidth, 0.8, 1) + 'em');
     }
 
-    function yOffset(d) { return d3.min([padding + h - 5, padding + h - yScale(d.value.total)]); }
-    function height(d) { return d3.max([5, yScale(d.value.total)]); }
+    yAxisScale = updateScale([0, 100], [h + padding, padding]);
 
-    function update(year) {
+    //Define Y axis
+    yAxis = d3.svg.axis()
+        .scale(yAxisScale)
+        .orient('left')
+        .ticks(5);
 
-        var data = {},
-            query = this;
+    // Create axes
+    svg.append('g')
+        .attr('class', 'y axis')
+        .attr('transform', 'translate(' + padding + ',0)')
+        .call(yAxis);
 
-        if ( year ) {
-            var i = 0,
-                monthMax = 0;
-            while ( i < 12 ) {
-                data[time.monthName(i)] = {
-                    total: editsByYear[year][i]
-                };
-                if ( data[time.monthName(i)].total > monthMax ) monthMax = data[time.monthName(i)].total;
-                i++;
-            }
+    svgStyle();
 
-            updateYAxis(0, monthMax);
-            updateViewing.call(query, query._viewingNode, year);
-        } else {
+    window.addEventListener('resize', svgStyle);
 
-            updateYAxis(8, yearMax);
-            updateViewing.call(query, query._viewingNode);
-            data = editsByYear;
-
-            // fill in any blank years
-            var firstYear = 9999, lastYear = 0;
-            for ( var year in data ) {
-                if ( +year < firstYear ) firstYear = +year;
-                if ( +year > lastYear ) lastYear = +year;
-            }
-
-            for ( var i = firstYear; i < lastYear; i++ ) {
-                if ( !data[i] ) {
-                    data[i] = { total: 0 };
-                }
-            }
-        }
-
-        var barLeft = function(d, i) {
-                return barPadding + padding + i * (w / d3.entries(data).length);
-            },
-            barWidth = w / d3.entries(data).length - barPadding;
-
-        rect = svg.selectAll('rect').data(d3.entries(data));
-        text = svg.selectAll('.label').data(d3.entries(data));
-
-        // create new <rect> elements for new data
-        rect.reverse().enter().append('rect');
-        text.enter().append('text');
-
-        // apply transition, dimensions, position
-        rect.transition().duration(250)
-            .attr('class', 'fill-default')
-            .attr('x', barLeft)
-            .attr('y', yOffset)
-            .attr('width', barWidth)
-            .attr('height', height);
-        rect.exit().remove();
-
-        text.attr('class', 'label')
-            .attr('x', function(d, i) {
-                return barLeft(d, i) + 0.5 * barWidth;
-            })
-            .attr('y', function() {
-                return h + padding + 20;
-            })
-            .attr('transform', function(d, i) {
-                return 'rotate(45 ' + (barLeft(d, i) + 0.5 * barWidth) + ' ' + (h + padding) + ')';
-            })
-            .text(function(d) {
-                return d.key;
-            })
-            .attr('height', height);
-        text.exit().remove();
-
-        rect.on('mouseover', showModal)
-            .on('mousemove', showModal)
-            .on('mouseout', function() {
-                d3.select(this).attr('class', '');
-            });
-
-        // only go further for year views
-        rect.on('click', function(d) {
-            if ( !isNaN(+d.key) ) update.call(query, d.key);
-        });
-    }
-
-    function showModal(d) {
+    function showModal(d, change) {
 
         var $this = d3.select(this),
             modalWidth = 150,
             modalLeft = d3.event.pageX - 0.5 * modalWidth,
             modalTop = d3.event.pageY - 60;
 
-        rect.each(function() {
-            d3.select(this).attr('class', '');
-        });
-
-        $this.attr('class', 'fill-red');
+        var value = d3.values(d.value).length > 0 ? d3.sum(d3.values(d.value)) : d.value;
 
         d3.select('#modal')
             .style({
@@ -244,38 +163,12 @@ function PageQuery(title) {
                 top: modalTop + 'px',
                 width: modalWidth + 'px'
             })
-            .html('<p><b>' + commas(d.value.total || 0) + '</b>&nbsp;edit' + (d.value.total === 1 ? '' : 's') + '</p>');
+            .html('<p><b>' + commas(value) + '</b>&nbsp;edit' + (value === 1 ? '' : 's') + '</p>');
     }
 
     svg.on('mouseout', function() {
         d3.select('#modal').style('display', 'none');
     });
-
-    function archive() {
-        store.set('wikitracking-' + title, edits);
-    }
-
-    function updateViewing(viewingNode, year) {
-
-        // set default viewing node
-        if ( viewingNode && !this._viewingNode ) this._viewingNode = viewingNode;
-
-        this._viewingNode.innerHTML = 'You are viewing Wikipedia edits ' + (year ? 'in ' + year : 'by year') + ' for: <b>' + decodeURIComponent(title) + '</b>';
-
-        if ( year ) {
-            var back = document.createElement('p');
-            back.id = 'back';
-            back.innerHTML = '<a href="#">Back to all years</a>';
-            var _this = this;
-            back.addEventListener('click', update.bind(this, null), false);
-
-            this._viewingNode.parentNode.insertBefore(back, this._viewingNode.nextSibling);
-        } else {
-            d3.select('#back').remove();
-        }
-
-        return this;
-    }
 
     function updateYAxis(min, max) {
 
@@ -284,7 +177,6 @@ function PageQuery(title) {
             max = 15;
         }
 
-        yScale = updateScale([min, max], [0, h]);
         yAxisScale = updateScale([min, max], [h + padding, padding]);
         yAxis.scale(yAxisScale);
         svg.select('.y.axis')
@@ -292,103 +184,279 @@ function PageQuery(title) {
             .call(yAxis);
     }
 
-    return {
-        updateViewing: updateViewing,
-        getRevisions: function getRevisions(param_continue, param_rvcontinue) {
+    function updateViewing(viewingNode, year) {
 
-            var query = this; // for binding
+        viewingNode.innerHTML = 'You are viewing Wikipedia edits ' + (year ? 'in ' + year : 'by year') + ' for: <b>' + decodeURIComponent(this.title) + '</b>';
 
-            if ( !store.get('wikitracking-' + title) ) {
+        if ( year ) {
+            var back = document.createElement('p');
+            back.id = 'back';
+            back.innerHTML = '<a href="#">Back to all years</a>';
+            back.addEventListener('click', update.bind(this, null), false);
 
-                if (!param_continue) param_continue = '';
-                if (!param_rvcontinue) param_rvcontinue = '';
-
-                var url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&titles=' + title + '&rvprop=timestamp&continue=' + param_continue + '&rvlimit=500' + (param_rvcontinue ? '&rvcontinue=' + param_rvcontinue : '');
-
-                function success(data) {
-
-                    for ( var page in data.query.pages ) {
-                        edits = edits.concat(data.query.pages[page].revisions);
-                        parseNewEdits(data.query.pages[page].revisions);
-                    }
-
-                    if ( data.continue ) {
-
-                        query.getRevisions(
-                            data.continue ? data.continue.continue : '',
-                            data.continue ? data.continue.rvcontinue : ''
-                        );
-                    } else {
-                        archive();
-                    }
-
-                    // update y axis
-                    updateYAxis(8, yearMax);
-
-                    update.call(query);
-                }
-
-                ajax({
-                    url: url,
-                    type: 'jsonp',
-                    success: success.bind(query)
-                });
-            } else {
-                edits = store.get('wikitracking-' + title);
-                parseNewEdits(edits);
-
-                // update y axis
-                updateYAxis(8, yearMax);
-            }
-
-            update.call(query);
-
-            return query;
-        },
-        makeGraph: function makeGraph() {
-
-            var realWidth = w + 1.5 * padding,
-                realHeight = h + 2 * padding;
-
-            function clamp(val, min, max) {
-                return d3.min([d3.max([val, min]), max]);
-            }
-
-            function svgStyle() {
-
-                var containerWidth = svg.node().parentNode.clientWidth;
-                svg.attr('width', realWidth ).attr('height', realHeight);
-                svg.attr('viewBox', '0 0 ' + (realWidth > containerWidth ? realWidth * realWidth / containerWidth : realWidth) + ' ' + realHeight);
-                svg.style('font-size', clamp(containerWidth / realWidth, 0.8, 1) + 'em');
-            }
-
-            yScale = updateScale([8, yearMax], [0, h]);
-            yAxisScale = updateScale([8, yearMax], [h + padding, padding]);
-
-            //Define Y axis
-            yAxis = d3.svg.axis()
-                .scale(yAxisScale)
-                .orient('left')
-                .ticks(5);
-
-            // Create axes
-            svg.append('g')
-                .attr('class', 'y axis')
-                .attr('transform', 'translate(' + padding + ',0)')
-                .call(yAxis);
-
-            svgStyle();
-
-            window.addEventListener('resize', svgStyle);
-
-            return this;
+            viewingNode.parentNode.insertBefore(back, viewingNode.nextSibling);
+        } else {
+            d3.select('#back').remove();
         }
+    }
+
+    // update the bar chart display (and axes) only
+    function updateChart(data, max) {
+
+        updateYAxis(8, max);
+
+        var dataLength = d3.entries(data).length,
+            rect,
+            shadowRect,
+            text;
+
+        var barLeft = leftFactory(dataLength),
+            barWidth = widthFactory(dataLength),
+            barOffset = offsetFactory(8, max),
+            barHeight = heightFactory(8, max);
+
+        rect = svg.selectAll('.bar').data(d3.entries(data));
+        shadowRect = svg.selectAll('.shadow').data(d3.entries(data));
+        text = svg.selectAll('.label').data(d3.entries(data));
+
+        // create new <rect> elements for new data
+        shadowRect.enter().append('rect');
+        rect.reverse().enter().append('rect');
+        text.enter().append('text');
+
+        shadowRect
+            .attr('class', 'shadow')
+            .attr('x', barLeft)
+            .attr('y', padding)
+            .attr('width', barWidth)
+            .attr('height', h);
+        shadowRect.exit().remove();
+
+        rect.transition().duration(250)
+            .attr('class', 'bar')
+            .attr('x', barLeft)
+            .attr('y', barOffset)
+            .attr('width', barWidth)
+            .attr('height', barHeight);
+        rect.exit().remove();
+
+        text.attr('class', 'label')
+            .attr('x', function(d, i) {
+                return barLeft(d, i) + 0.5 * barWidth();
+            })
+            .attr('y', function() {
+                return h + padding + 20;
+            })
+            .attr('transform', function(d, i) {
+                return 'rotate(45 ' + (barLeft(d, i) + 0.5 * barWidth()) + ' ' + (h + padding) + ')';
+            })
+            .text(function(d) {
+                return d.key;
+            })
+            .attr('height', h);
+
+        text.exit().remove();
+
+        rect.on('mouseover', showModal)
+            .on('mousemove', showModal);
+
+        shadowRect.on('mouseover', showModal)
+            .on('mousemove', showModal);
+
+        shadowRect.on('mouseover', function(d, i) {
+            // rect[0] refers to the array of <rect> elements
+            rect[0].forEach(function(r, j) {
+                r.classList.remove('hover');
+                if ( i === j ) r.classList.add('hover');
+            });
+        }).on('mouseleave', function() {
+            rect.attr('class', 'bar');
+        });
+
+        // only go further for year views
+        var _this = this;
+        rect.on('click', function(d) {
+            if ( _this.data.hasOwnProperty(d.key) ) update.call(_this, d.key);
+        });
+    }
+
+    // TODO: needs way of retrieving original data when returning to
+    // all years' view from single year
+    function update(year) {
+
+        if ( !this.title && !this.data ) {
+            throw new Error('You must set the graph with data before you can update the view.');
+        }
+
+        var max = 0,
+            data;
+
+        if ( !year ) {
+            data = this.data;
+            for ( var yr in data ) {
+                if ( d3.sum(d3.values(data[yr])) > max ) {
+                    max = d3.sum(d3.values(data[yr]));
+                }
+            }
+        } else {
+            data = this.data[year];
+            max = d3.max(d3.values(data));
+        }
+
+        updateViewing.call(this, viewingNode, year);
+        updateChart.call(this, data, max);
+    }
+
+    return {
+        set: function(response) {
+            this.title = response.title;
+            this.data = response.data;
+        },
+        update: update
     };
+}
+
+module.exports = Graph;
+
+},{"./time.js":5,"d3":6}],3:[function(require,module,exports){
+var PageQuery = require('./query.js');
+var Graph = require('./graph.js');
+var autofill = require('./autofill.js');
+var time = require('./time.js');
+
+var d3 = require('d3'),
+    ajax = require('reqwest');
+
+var liveQuery = false;
+
+var query = document.getElementById('query'),
+    suggestions = document.getElementById('suggestions'),
+    container = document.getElementById('main'),
+    viewing = document.getElementById('viewing');
+
+/* ----- Initial query on page load ----- */
+
+var initQuery = window.location.hash ? window.location.hash.slice(1) : 'Pittsburgh',
+    graph = Graph(container, viewing);
+
+function makeQuery(query) {
+    PageQuery(query, function(response) {
+        graph.set(response);
+        graph.update();
+    });
+}
+
+makeQuery(initQuery);
+autofill(query, suggestions, makeQuery);
+
+},{"./autofill.js":1,"./graph.js":2,"./query.js":4,"./time.js":5,"d3":6,"reqwest":7}],4:[function(require,module,exports){
+var ajax = require('reqwest'),
+    store = require('store'),
+    time = require('./time.js');
+
+function PageQuery(title, cb) {
+
+    var edits = [],
+        editsByYear = {};
+
+    // purely to save memory -- rewrite the edit's "timestamp" key as "t"
+    function parseEdit(item) {
+        var copy = {
+            "t": item.timestamp
+        };
+        return copy;
+    }
+
+    // Given an array (the parsed edits), organize our editsByYear from it
+    function organize(arr) {
+        arr.forEach(function(item) {
+
+            var timestamp = new Date(item.timestamp || item.t),
+                year,
+                month,
+                m = 0;
+
+            year = timestamp.getFullYear(); // i.e. 2015
+            month = timestamp.getMonth(); // i.e. 8
+            month = time.monthName(month); // i.e. September
+
+            if ( !editsByYear[year] ) editsByYear[year] = {};
+
+            while ( m < 12 ) {
+                if ( !editsByYear[year][time.monthName(m)] ) {
+                    editsByYear[year][time.monthName(m)] = 0;
+                }
+                m++;
+            }
+
+            editsByYear[year][month] += 1;
+        });
+    }
+
+    // Archive (called once all data has been retrieved from Wikipedia)
+    function archive() {
+        store.set('wikitracking-' + title, edits);
+    }
+
+    // Called each time more data is loaded from Wikipedia
+    function success(data) {
+
+        for ( var page in data.query.pages ) {
+            organize(data.query.pages[page].revisions);
+            edits = edits.concat(data.query.pages[page].revisions.map(parseEdit));
+        }
+
+        (cb || function() {})({
+            "data": editsByYear,
+            "title": title
+        });
+
+        if ( data.continue ) {
+            getRevisions(
+                data.continue ? data.continue.continue : '',
+                data.continue ? data.continue.rvcontinue : ''
+            );
+        } else {
+            archive();
+            finished();
+        }
+    }
+
+    // Called once we're totally, completely finished
+    function finished() {
+        edits = null; // clear up memory
+
+        (cb || function() {})({
+            "data": editsByYear,
+            "title": title
+        });
+    }
+
+    function getRevisions( param_continue, param_rvcontinue ) {
+        if (!param_continue) param_continue = '';
+        if (!param_rvcontinue) param_rvcontinue = '';
+
+        var url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=revisions&titles=' + title + '&rvprop=timestamp&continue=' + param_continue + '&rvlimit=500' + (param_rvcontinue ? '&rvcontinue=' + param_rvcontinue : '');
+
+        ajax({
+            url: url,
+            type: 'jsonp',
+            success: success
+        });
+    }
+
+    if ( !store.get('wikitracking-' + title) ) {
+        getRevisions();
+    } else {
+        edits = store.get('wikitracking-' + title);
+        organize(edits);
+        finished();
+    }
 }
 
 module.exports = PageQuery;
 
-},{"./time.js":3,"d3":4,"reqwest":5,"store":6}],3:[function(require,module,exports){
+},{"./time.js":5,"reqwest":7,"store":8}],5:[function(require,module,exports){
 var months = [
     'January',
     'February',
@@ -413,7 +481,7 @@ module.exports = {
     }
 };
 
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 !function() {
   var d3 = {
     version: "3.5.6"
@@ -9918,7 +9986,7 @@ module.exports = {
   if (typeof define === "function" && define.amd) define(d3); else if (typeof module === "object" && module.exports) module.exports = d3;
   this.d3 = d3;
 }();
-},{}],5:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 /*!
   * Reqwest! A general purpose XHR connection manager
   * license MIT (c) Dustin Diaz 2015
@@ -10552,7 +10620,7 @@ module.exports = {
   return reqwest
 });
 
-},{}],6:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 ;(function(win){
 	var store = {},
 		doc = win.document,
@@ -10729,4 +10797,4 @@ module.exports = {
 
 })(Function('return this')());
 
-},{}]},{},[1]);
+},{}]},{},[3]);

@@ -16,6 +16,16 @@ h1 {
 rect {
     cursor: pointer;
     transition: 0.2s fill;
+
+    &.shadow {
+        fill: #eee;
+    }
+
+    &.bar {
+        &:active, &:focus, &:hover, &.hover {
+            @include fill('red');
+        }
+    }
 }
 
 text {
