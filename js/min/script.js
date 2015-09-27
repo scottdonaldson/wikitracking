@@ -322,12 +322,6 @@ module.exports = Graph;
 var PageQuery = require('./query.js');
 var Graph = require('./graph.js');
 var autofill = require('./autofill.js');
-var time = require('./time.js');
-
-var d3 = require('d3'),
-    ajax = require('reqwest');
-
-var liveQuery = false;
 
 var query = document.getElementById('query'),
     suggestions = document.getElementById('suggestions'),
@@ -349,7 +343,7 @@ function makeQuery(query) {
 makeQuery(initQuery);
 autofill(query, suggestions, makeQuery);
 
-},{"./autofill.js":1,"./graph.js":2,"./query.js":4,"./time.js":5,"d3":6,"reqwest":7}],4:[function(require,module,exports){
+},{"./autofill.js":1,"./graph.js":2,"./query.js":4}],4:[function(require,module,exports){
 var ajax = require('reqwest'),
     store = require('store'),
     time = require('./time.js');
