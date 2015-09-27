@@ -1,12 +1,6 @@
 var PageQuery = require('./query.js');
 var Graph = require('./graph.js');
 var autofill = require('./autofill.js');
-var time = require('./time.js');
-
-var d3 = require('d3'),
-    ajax = require('reqwest');
-
-var liveQuery = false;
 
 var query = document.getElementById('query'),
     suggestions = document.getElementById('suggestions'),
