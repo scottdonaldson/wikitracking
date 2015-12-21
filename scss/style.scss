@@ -2,6 +2,12 @@
 @import "normalize";
 @import "layout";
 @import "forms";
+@import "social";
+
+* {
+    box-sizing: border-box;
+    position: relative;
+}
 
 body {
     @include color('default');
@@ -48,13 +54,16 @@ text {
 }
 
 #modal {
-    background: #fff;
-    border: 1px solid;
-    border-radius: 2px;
-    display: none;
-    padding: 0.5em 0.75em;
-    position: absolute;
-    text-align: center;
+    text-anchor: middle;
+
+    rect {
+        fill: rgba(255, 255, 255, 0.9);
+        stroke: #000;
+    }
+
+    .value {
+        font-weight: bold;
+    }
 }
 
 #suggestions {
@@ -91,4 +100,11 @@ text {
         font-size: 11px;
         font-weight: normal;
     }
+}
+
+#copyright {
+    background: #fff;
+    background: linear-gradient(0deg, #fff, transparent);
+    font-size: 0.8em;
+    padding: 4em 1em 1em;
 }

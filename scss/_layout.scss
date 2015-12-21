@@ -25,7 +25,8 @@ $full_width: 1600px;
 .l0 { left: 0; }
 .r0 { right: 0; }
 .w100 { width: 100%; }
-.h100 { height: 100%; }
+@mixin h100 { height: 100%; }
+.h100 { @include h100; }
 
 .block { display: block !important; }
 .inline { display: inline !important; }
@@ -88,6 +89,7 @@ $full_width: 1600px;
 
 .container {
     display: flex;
+
     &.stack {
         flex-direction: column;
     }
@@ -136,7 +138,6 @@ $full_width: 1600px;
 $columns: 12;
 $gutter: 30px;
 @mixin column($num) {
-    // AWW FUCK YEAH
     flex: 0 1 calc((#{$num * 100% / $columns} - #{ ( $num * ( $columns - 1 ) * $gutter - $columns * ( $num - 1 ) * $gutter ) / $columns }));
 
     @media screen and (max-width: $break_small) {

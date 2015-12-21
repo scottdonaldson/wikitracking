@@ -149,25 +149,45 @@ function Graph(container, viewingNode) {
 
     function showModal(d, change) {
 
+        var modalWidth = 120,
+            modalHeight = 60,
+            offset = 32;
+
+        if ( !d3.select('#modal').node() ) {
+            var modal = svg.append('g')
+                .attr('id', 'modal');
+            modal.append('rect')
+                .attr('rx', 3)
+                .attr('width', modalWidth)
+                .attr('height', modalHeight);
+            modal.append('text')
+                .attr('class', 'value');
+            modal.append('text')
+                .attr('class', 'edits');
+        }
+
         var $this = d3.select(this),
-            modalWidth = 150,
-            modalLeft = d3.event.pageX - 0.5 * modalWidth,
-            modalTop = d3.event.pageY - 60;
+            x = d3.event.offsetX,
+            y = d3.event.offsetY;
 
         var value = d3.values(d.value).length > 0 ? d3.sum(d3.values(d.value)) : d.value;
 
-        d3.select('#modal')
-            .style({
-                display: 'block',
-                left: modalLeft + 'px',
-                top: modalTop + 'px',
-                width: modalWidth + 'px'
-            })
-            .html('<p><b>' + commas(value) + '</b>&nbsp;edit' + (value === 1 ? '' : 's') + '</p>');
+        d3.select('#modal rect')
+            .attr('x', x - 0.5 * modalWidth)
+            .attr('y', y - modalHeight - offset);
+
+        d3.selectAll('#modal text')
+            .attr('x', x);
+        d3.select('#modal .value')
+            .text(commas(value))
+            .attr('y', y - (offset + 35));
+        d3.select('#modal .edits')
+            .text('edit' + (value === 1 ? '' : 's'))
+            .attr('y', y - (offset + 15));
     }
 
     svg.on('mouseout', function() {
-        d3.select('#modal').style('display', 'none');
+        // d3.select('#modal').style('display', 'none');
     });
 
     function updateYAxis(min, max) {
@@ -252,8 +272,7 @@ function Graph(container, viewingNode) {
             })
             .text(function(d) {
                 return d.key;
-            })
-            .attr('height', h);
+            });
 
         text.exit().remove();
 
@@ -348,6 +367,9 @@ var ajax = require('reqwest'),
     store = require('store'),
     time = require('./time.js');
 
+// get the current year and make available
+var thisYear = new Date().getFullYear();
+
 function PageQuery(title, cb) {
 
     var edits = [],
@@ -368,14 +390,26 @@ function PageQuery(title, cb) {
             var timestamp = new Date(item.timestamp || item.t),
                 year,
                 month,
-                m = 0;
+                m = 0,
+                dupYear;
 
             year = timestamp.getFullYear(); // i.e. 2015
             month = timestamp.getMonth(); // i.e. 8
             month = time.monthName(month); // i.e. September
 
-            if ( !editsByYear[year] ) editsByYear[year] = {};
+            // ensure that, if there were edits in 2009 and 2011 but not 2010,
+            // 2010 still gets inserted as an "empty" year
+            dupYear = year;
+            while ( dupYear <= thisYear ) {
+                var monthKey = time.monthName(0);
+                if ( !editsByYear[dupYear] ) {
+                    editsByYear[dupYear] = {};
+                    editsByYear[dupYear][monthKey] = 0;
+                }
+                dupYear++;
+            }
 
+            // same as above but for months of year
             while ( m < 12 ) {
                 if ( !editsByYear[year][time.monthName(m)] ) {
                     editsByYear[year][time.monthName(m)] = 0;

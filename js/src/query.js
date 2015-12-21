@@ -2,6 +2,9 @@ var ajax = require('reqwest'),
     store = require('store'),
     time = require('./time.js');
 
+// get the current year and make available
+var thisYear = new Date().getFullYear();
+
 function PageQuery(title, cb) {
 
     var edits = [],
@@ -22,14 +25,26 @@ function PageQuery(title, cb) {
             var timestamp = new Date(item.timestamp || item.t),
                 year,
                 month,
-                m = 0;
+                m = 0,
+                dupYear;
 
             year = timestamp.getFullYear(); // i.e. 2015
             month = timestamp.getMonth(); // i.e. 8
             month = time.monthName(month); // i.e. September
 
-            if ( !editsByYear[year] ) editsByYear[year] = {};
+            // ensure that, if there were edits in 2009 and 2011 but not 2010,
+            // 2010 still gets inserted as an "empty" year
+            dupYear = year;
+            while ( dupYear <= thisYear ) {
+                var monthKey = time.monthName(0);
+                if ( !editsByYear[dupYear] ) {
+                    editsByYear[dupYear] = {};
+                    editsByYear[dupYear][monthKey] = 0;
+                }
+                dupYear++;
+            }
 
+            // same as above but for months of year
             while ( m < 12 ) {
                 if ( !editsByYear[year][time.monthName(m)] ) {
                     editsByYear[year][time.monthName(m)] = 0;

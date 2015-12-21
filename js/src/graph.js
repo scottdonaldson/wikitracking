@@ -89,25 +89,45 @@ function Graph(container, viewingNode) {
 
     function showModal(d, change) {
 
+        var modalWidth = 120,
+            modalHeight = 60,
+            offset = 32;
+
+        if ( !d3.select('#modal').node() ) {
+            var modal = svg.append('g')
+                .attr('id', 'modal');
+            modal.append('rect')
+                .attr('rx', 3)
+                .attr('width', modalWidth)
+                .attr('height', modalHeight);
+            modal.append('text')
+                .attr('class', 'value');
+            modal.append('text')
+                .attr('class', 'edits');
+        }
+
         var $this = d3.select(this),
-            modalWidth = 150,
-            modalLeft = d3.event.pageX - 0.5 * modalWidth,
-            modalTop = d3.event.pageY - 60;
+            x = d3.event.offsetX,
+            y = d3.event.offsetY;
 
         var value = d3.values(d.value).length > 0 ? d3.sum(d3.values(d.value)) : d.value;
 
-        d3.select('#modal')
-            .style({
-                display: 'block',
-                left: modalLeft + 'px',
-                top: modalTop + 'px',
-                width: modalWidth + 'px'
-            })
-            .html('<p><b>' + commas(value) + '</b>&nbsp;edit' + (value === 1 ? '' : 's') + '</p>');
+        d3.select('#modal rect')
+            .attr('x', x - 0.5 * modalWidth)
+            .attr('y', y - modalHeight - offset);
+
+        d3.selectAll('#modal text')
+            .attr('x', x);
+        d3.select('#modal .value')
+            .text(commas(value))
+            .attr('y', y - (offset + 35));
+        d3.select('#modal .edits')
+            .text('edit' + (value === 1 ? '' : 's'))
+            .attr('y', y - (offset + 15));
     }
 
     svg.on('mouseout', function() {
-        d3.select('#modal').style('display', 'none');
+        // d3.select('#modal').style('display', 'none');
     });
 
     function updateYAxis(min, max) {
@@ -192,8 +212,7 @@ function Graph(container, viewingNode) {
             })
             .text(function(d) {
                 return d.key;
-            })
-            .attr('height', h);
+            });
 
         text.exit().remove();
 
