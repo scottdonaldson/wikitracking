@@ -5,14 +5,11 @@ var gulp = require('gulp'),
     browserify = require('browserify'),
     uglify = require('gulp-uglify'),
     source = require('vinyl-source-stream'),
-    awspublish = require('gulp-awspublish'),
     buffer = require('vinyl-buffer'),
     browserSync = require('browser-sync').create();
 var reload = browserSync.reload;
 
 // ----- Config
-
-var aws = require('./aws.json');
 
 var paths = {
     jsIn: 'js/src',
@@ -61,23 +58,6 @@ gulp.task('js', function() {
         .pipe(buffer())
         .pipe(uglify())
         .pipe(gulp.dest('js/min'));
-});
-
-gulp.task('publish', function() {
-
-    var publisher = awspublish.create({
-        params: {
-            Bucket: aws.bucket
-        },
-        accessKeyId: aws.key,
-        secretAccessKey: aws.secret
-    });
-
-    gulp.src('site/**/*')
-        .pipe(publisher.publish())
-        .pipe(publisher.sync())
-        .pipe(awspublish.reporter());
-
 });
 
 gulp.task('watch', ['css', 'js'], function() {
