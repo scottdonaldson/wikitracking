@@ -15,36 +15,48 @@
 <body>
 
     <div id="page">
-        <div class="container">
-            <div class="three columns same-height">
-                <div class="module">
-                    <h1>WikiTracking</h1>
-                    <small>v0.1.1</small>
-                    <p id="viewing"></p>
 
-                    <input id="query" autocomplete="off" placeholder="Enter your query">
-                    <div class="suggestions-container">
-                        <div id="suggestions"></div>
+        <div class="bg-red" id="header">
+            <div class="module white">
+                <h1 class="inline-block">WikiTracking</h1>
+                <small>v0.1.1</small>
+                <br>
+
+                <div class="container black">
+                    <div class="six columns">
+                        <input id="query" autocomplete="off" placeholder="Enter your query">
+                        <div class="suggestions-container">
+                            <div id="suggestions"></div>
+                        </div>
+                    </div>
+                    <div class="six columns">
+                        <p class="alignright">
+                            <button id="about">About</button>
+                        </p>
+                    </div>
+                </div>
+                <div id="about-content" class="black" style="display: none;">
+                    <div class="container">
+                        <div class="two columns"></div>
+                        <div class="eight columns module bg-white">
+                            <p>WikiTracking shows edits to Wikipedia pages over time. A counterpart to Google Trends, which shows broad search activity for certain terms over time, WikiTracking lets you sift through the relatively small, highly biased subset of Wikipedia editors across all entries.</p>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="nine columns same-height">
-                <div id="main"></div>
-            </div>
         </div>
 
-        <div class="container h100">
-            <div class="abs w100 b0">
-                <div class="aligncenter" id="copyright">
-                    <span style="margin-right: 15px;">A 2015 project by Scottland.</span>
-                    <a href="https://twitter.com/scottpdonaldson" class="twitter-follow-button" data-show-count="false">Follow @scottpdonaldson</a>
-                </div>
-            </div>
+        <div id="main">
+            <p class="aligncenter module" id="viewing"></p>
+        </div>
+
+        <div class="aligncenter" id="copyright">
+            <span style="margin-right: 15px;">A project by <a href="http://www.scottland.cc">Scott Donaldson</a>.</span>
+            <a href="https://twitter.com/scott_pdo" class="twitter-follow-button" data-show-count="false">Follow @scott_pdo</a>
         </div>
     </div>
 
-    <script src="/js/min/script.js"></script>
+    <script src="/js/min/script.min.js"></script>
 
     <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
 </body>

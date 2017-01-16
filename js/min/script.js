@@ -125,7 +125,13 @@ function Graph(container, viewingNode) {
 
         var containerWidth = container.clientWidth;
         svg.attr('width', realWidth ).attr('height', realHeight);
-        svg.attr('viewBox', '0 0 ' + (realWidth > containerWidth ? realWidth * realWidth / containerWidth : realWidth) + ' ' + realHeight);
+        svg.attr(
+            'viewBox',
+            '0 0 ' + (
+                realWidth > containerWidth ? realWidth * realWidth / containerWidth : realWidth) +
+                ' ' +
+                realHeight
+            );
         svg.style('font-size', clamp(containerWidth / realWidth, 0.8, 1) + 'em');
     }
 
@@ -164,6 +170,8 @@ function Graph(container, viewingNode) {
                 .attr('class', 'value');
             modal.append('text')
                 .attr('class', 'edits');
+        } else {
+            document.getElementById('modal').style.display = 'block';
         }
 
         var $this = d3.select(this),
@@ -186,8 +194,8 @@ function Graph(container, viewingNode) {
             .attr('y', y - (offset + 15));
     }
 
-    svg.on('mouseout', function() {
-        // d3.select('#modal').style('display', 'none');
+    svg.on('mouseleave', function() {
+        document.getElementById('modal').style.display = 'none';
     });
 
     function updateYAxis(min, max) {
@@ -209,12 +217,12 @@ function Graph(container, viewingNode) {
         viewingNode.innerHTML = 'You are viewing Wikipedia edits ' + (year ? 'in ' + year : 'by year') + ' for: <b>' + decodeURIComponent(this.title) + '</b>';
 
         if ( year ) {
-            var back = document.createElement('p');
+            var back = document.createElement('span');
             back.id = 'back';
-            back.innerHTML = '<a href="#">Back to all years</a>';
+            back.innerHTML = '&nbsp;<a href="#">(Back to all years &laquo;)</a>';
             back.addEventListener('click', update.bind(this, null), false);
 
-            viewingNode.parentNode.insertBefore(back, viewingNode.nextSibling);
+            viewingNode.appendChild(back);
         } else {
             d3.select('#back').remove();
         }
@@ -346,6 +354,11 @@ var query = document.getElementById('query'),
     suggestions = document.getElementById('suggestions'),
     container = document.getElementById('main'),
     viewing = document.getElementById('viewing');
+
+document.getElementById('about').addEventListener('click', function() {
+    var content = document.getElementById('about-content');
+    content.style.display = (content.style.display === 'none') ? 'block' : 'none';
+});
 
 /* ----- Initial query on page load ----- */
 

@@ -15,8 +15,22 @@ body {
     overflow-x: hidden;
 }
 
+#header {
+    background-image: url(/img/noise2.png);
+}
+
 h1 {
     margin-bottom: 0;
+}
+
+#viewing {
+    margin-bottom: -60px;
+    z-index: 999;
+}
+
+svg {
+    display: block;
+    margin: 0 auto;
 }
 
 rect {
@@ -64,6 +78,8 @@ text {
     .value {
         font-weight: bold;
     }
+
+    z-index: 1000;
 }
 
 #suggestions {

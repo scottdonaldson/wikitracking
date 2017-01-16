@@ -7,6 +7,11 @@ var query = document.getElementById('query'),
     container = document.getElementById('main'),
     viewing = document.getElementById('viewing');
 
+document.getElementById('about').addEventListener('click', function() {
+    var content = document.getElementById('about-content');
+    content.style.display = (content.style.display === 'none') ? 'block' : 'none';
+});
+
 /* ----- Initial query on page load ----- */
 
 var initQuery = window.location.hash ? window.location.hash.slice(1) : 'Pittsburgh',
