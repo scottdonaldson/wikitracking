@@ -111,7 +111,9 @@ function Graph(container, viewingNode) {
             modal.append('text')
                 .attr('class', 'edits');
         } else {
-            document.getElementById('modal').style.display = 'block';
+            var modal = document.getElementById('modal');
+            modal.style.display = 'block';
+            svg.node().appendChild(modal);
         }
 
         var $this = d3.select(this),
